@@ -1,0 +1,15 @@
+{
+  "rules": {
+    "no-param-reassign": [2, { "props": false }],
+    "unicorn/no-abusive-eslint-disable": "off",
+    "class-methods-use-this":"off",
+    "@typescript-eslint/explicit-member-accessibility": "off",
+    "@typescript-eslint/strict-boolean-expressions": "off",
+    "@typescript-eslint/no-unnecessary-condition": "off",
+    "@typescript-eslint/no-explicit-any": "off",
+    "unicorn/no-null": "off"
+  },
+  "parserOptions": {
+    "sourceType": "module"
+  }
+}

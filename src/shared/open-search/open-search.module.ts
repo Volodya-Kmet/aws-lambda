@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { OpenSearchService } from './openseearch.service';
+import { OpenSearchService } from './open-search.service';
 
 @Module({
   imports: [],

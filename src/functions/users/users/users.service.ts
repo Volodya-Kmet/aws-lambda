@@ -1,80 +1,79 @@
-import { Injectable, InternalServerErrorException, ValidationError } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { Readable } from 'stream';
-import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
 import { UserToCreateDto } from './dtos/user-to-create.dto';
-import { PinoLogger } from 'nestjs-pino';
+import { Logger } from '@nestjs/common';
 import { UserRepository } from './users.repository';
-import { OpenSearchService } from '../../../shared/open-search/openseearch.service';
+import { OpenSearchService } from '../../../shared/open-search/open-search.service';
+import { streamArray } from 'stream-json/streamers/StreamArray';
+import { parser } from 'stream-json';
+import { chain } from 'stream-chain';
+import { retry } from '../../../shared/helpers/retry.helper';
 
 @Injectable()
 export class UsersService {
+  private readonly logger = new Logger(UsersService.name);
+
   public constructor(
-    private readonly logger: PinoLogger,
     private readonly userRepository: UserRepository,
     private readonly osService: OpenSearchService,
   ) {}
 
   public async processUserFile(file: Express.Multer.File): Promise<void> {
-    const fileStream = Readable.from(file.buffer);
-
     const validUsersMap: Map<string, UserToCreateDto> = new Map();
-    const tasks: Promise<any>[] = [];
     const UPSERT_CHUNK_SIZE = 50;
-    let usersCounter = {
+    const usersCounter = {
       upserted: 0,
       failed: 0,
     };
 
-    const handleData = async (values: UserToCreateDto[]): Promise<void> => {
-      values.map(async (value) => {
-        const userDto = plainToInstance(UserToCreateDto, value);
-        const errors = await validate(userDto);
+    const pipeline = chain([Readable.from(file.buffer), parser(), streamArray()]);
 
-        if (errors.length) {
-          errors.forEach((error) => this.logger.warn(error, 'Invalid user record'));
-          usersCounter.failed++;
-          return;
-        }
+    for await (const { value } of pipeline) {
+      await this.handleUser(value, validUsersMap, usersCounter, UPSERT_CHUNK_SIZE);
+    }
 
-        validUsersMap.set(userDto.email, userDto);
+    if (validUsersMap.size) await this.bulkUpsert([...validUsersMap.values()], usersCounter);
 
-        if (validUsersMap.size === UPSERT_CHUNK_SIZE) {
-          const userToUpsert = [...validUsersMap.values()];
-          validUsersMap.clear();
-          return this.bulkUpsert(userToUpsert, usersCounter);
-        }
-      })
-    };
-
-    fileStream.on('data', async (chunk) => {
-      tasks.push(handleData(JSON.parse(chunk.toString())));
-    });
-
-    fileStream.on('error', async (error) => {
-      this.logger.error({ error: { message: error.message, stack: error.stack } }, 'Internal server error');
-    });
-
-    fileStream.on('end', async (end) => {
-      if (tasks.length) await Promise.all(tasks);
-      if (validUsersMap.size) await this.bulkUpsert([...validUsersMap.values()], usersCounter);
-
-      this.logger.info(
-        { ...usersCounter },
-        'Processing of users data file finished',
-      );
-    });
+    this.logger.log({ ...usersCounter }, 'Processing of users data file finished');
   }
 
-  private async bulkUpsert(users: UserToCreateDto[], counter: { upserted:number, failed: number }) {
+  private handleUser = async (
+    value: UserToCreateDto,
+    validUsersMap: Map<string, UserToCreateDto>,
+    usersCounter: { upserted: number; failed: number },
+    UPSERT_CHUNK_SIZE: number,
+  ): Promise<void> => {
+    const userDto = UserToCreateDto.toDto(value);
+    const errors = await validate(userDto);
+    if (errors.length) {
+      errors.forEach((error) => {
+        this.logger.warn({ invalidUser: JSON.stringify(error.constraints) }, 'Invalid user record');
+      });
+      usersCounter.failed++;
+      return;
+    }
 
+    validUsersMap.set(userDto.email, userDto);
+    if (validUsersMap.size === UPSERT_CHUNK_SIZE) {
+      const userToUpsert = [...validUsersMap.values()];
+      validUsersMap.clear();
+      await this.bulkUpsert(userToUpsert, usersCounter);
+    }
+  };
+
+  private async bulkUpsert(users: UserToCreateDto[], counter: { upserted: number; failed: number }) {
     const queryRunner = await this.userRepository.prepareTransaction();
     await queryRunner.startTransaction();
 
+    // Here, I chose consistency in the database and OpenSearch. In my opinion, this is a question for the business.
+    // If some differences are fine, then we may create a job to synchronize the data once a day, and remove this transaction or find some other solutions.
     try {
+      const openSearchPayload = users.flatMap(UserToCreateDto.toOpenSearchBulkUpsert);
+
       await Promise.all([
-        this.userRepository.upsertUsers(users).catch((error) => { console.log(error, '>>>>ER<<<<<'); }),
-        await this.osService.bulk(users.flatMap(UserToCreateDto.toOpenSearchBulkUpsert)),
+        this.userRepository.upsertUsers(users),
+        retry(this.osService.bulk.bind(this.osService, openSearchPayload), 3, 500),
       ]);
       await queryRunner.commitTransaction();
       counter.upserted = counter.upserted + users.length;

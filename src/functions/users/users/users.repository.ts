@@ -17,9 +17,11 @@ export class UserRepository extends Repository<UserEntity> {
   }
 
   public async upsertUsers(users: UserToCreateDto[], queryRunner?: QueryRunner): Promise<InsertResult> {
-    const result =  (queryRunner?.manager.getRepository(UserEntity) || this)
-      .upsert(users, { conflictPaths: ['email'], skipUpdateIfNoValuesChanged: true })
+    const result = (queryRunner?.manager.getRepository(UserEntity) || this).upsert(users, {
+      conflictPaths: ['email', 'id'],
+      skipUpdateIfNoValuesChanged: true,
+    });
 
-    return result
+    return result;
   }
 }

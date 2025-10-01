@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 import { UsersController } from './users.controller';
 import { UsersService } from './users.service';
-import { OpenSearchModule } from '../../../shared/open-search/opensearch.module';
+import { OpenSearchModule } from '../../../shared/open-search/open-search.module';
 import { MulterModule } from '@nestjs/platform-express';
 import { UserRepository } from './users.repository';
 

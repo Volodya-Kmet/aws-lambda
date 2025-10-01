@@ -5,7 +5,7 @@ import { NestFactory } from '@nestjs/core';
 import { ExpressAdapter } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import express from 'express';
-import { createHttpLogger } from '../../shared/logger/logger.module';
+import { Logger } from '../../shared/logger/logger';
 
 let cachedServer: Handler;
 
@@ -15,7 +15,7 @@ async function bootstrap(context: Context): Promise<Handler> {
 
   const nestApp = await NestFactory.create(AppModule, new ExpressAdapter(expressApp));
 
-  nestApp.use(createHttpLogger(context));
+  nestApp.useLogger(new Logger(context));
   nestApp.setGlobalPrefix(apiPrefix, { exclude: ['/'] });
 
   const config = new DocumentBuilder()
@@ -39,8 +39,9 @@ export const handler: Handler = async (
   event: APIGatewayProxyEvent,
   context: Context,
   callback: Callback,
-): Promise<Handler> => {
-  if (event && (event.path === '' || event.path === undefined)) event.path = '/';
+): Promise<Handler | undefined> => {
+  if (!event) return;
+  if (event.path === '' || event.path === undefined) event.path = '/';
 
   if (!cachedServer) cachedServer = await bootstrap(context);
 

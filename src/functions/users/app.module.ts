@@ -3,16 +3,12 @@ import { UsersModule } from './users/users.module';
 import { AppController } from './app.controller';
 import { DatabaseModule } from '../../shared/database/database.module';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { LoggerModule } from 'nestjs-pino';
-import { createHttpLogger } from '../../shared/logger/logger.module';
+import { CustomConfigModule } from '../../shared/configs/config.module';
 
 @Module({
   imports: [
+    CustomConfigModule.forRoot({ isGlobal: true }),
     TypeOrmModule.forRoot(DatabaseModule.getTypeOrmOptions()),
-    LoggerModule.forRoot({
-      pinoHttp: createHttpLogger(),
-      forRoutes: ['*'],
-    }),
     UsersModule,
   ],
   controllers: [AppController],

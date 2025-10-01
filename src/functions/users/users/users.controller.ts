@@ -1,5 +1,5 @@
 import { Controller, Get, HttpStatus, ParseFilePipe, Post, Query, UploadedFile, UseInterceptors } from '@nestjs/common';
-import { OpenSearchService } from '../../../shared/open-search/openseearch.service';
+import { OpenSearchService } from '../../../shared/open-search/open-search.service';
 import { ApiBody, ApiConsumes, ApiResponse } from '@nestjs/swagger';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { UserPostResponseDto } from './dtos/user-post-response.dto';
@@ -7,14 +7,15 @@ import { memoryStorage } from 'multer';
 import { UsersFileValidator } from './validators/user-upload-file.validator';
 import { UsersService } from './users.service';
 import { plainToInstance } from 'class-transformer';
-import { PinoLogger } from 'nestjs-pino';
+import { Logger } from '@nestjs/common';
 
 @Controller('users')
 export class UsersController {
+  private readonly logger = new Logger(UsersController.name);
+
   public constructor(
     private readonly osService: OpenSearchService,
     private readonly usersService: UsersService,
-    private readonly logger: PinoLogger,
   ) {}
 
   @Post('upload')

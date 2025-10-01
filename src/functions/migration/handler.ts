@@ -1,13 +1,12 @@
 import dataSource from '../../shared/database/datasource.config';
-import { createHttpLogger } from '../../shared/logger/logger.module';
-import { APIGatewayProxyEvent, APIGatewayProxyResult, Callback, Context } from 'aws-lambda';
+import { APIGatewayProxyEvent, APIGatewayProxyResult, Context } from 'aws-lambda';
+import { Logger } from '../../shared/logger/logger';
 
 module.exports.main = async (
   event: APIGatewayProxyEvent,
   context: Context,
-  callback: Callback,
 ): Promise<Partial<APIGatewayProxyResult>> => {
-  const logger = createHttpLogger(context).logger;
+  const logger = new Logger(context);
   try {
     const ds = await dataSource.initialize();
     await ds.runMigrations();

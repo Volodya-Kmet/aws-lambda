@@ -1,7 +1,7 @@
 import { UserRolesEnum } from '../../constants/user-roles.enum';
 import { ApiProperty } from '@nestjs/swagger';
 import { ArrayNotEmpty, IsArray, IsDateString, IsEmail, IsNotEmpty, IsString } from 'class-validator';
-import { Transform } from 'class-transformer';
+import { plainToInstance, Transform } from 'class-transformer';
 import { DateTime } from 'luxon';
 import { IBulkInput } from '../../../../shared/open-search/types/bulkInput.interface';
 import { OPEN_SEARCH_USERS_INDEX } from '../../constants/open-serach-index.constant';
@@ -55,7 +55,7 @@ export class UserToCreateDto {
       const formatedDate = DateTime.fromFormat(cleaned, dateFormat, { zone: 'utc' });
       if (!formatedDate.isValid) return;
 
-      date = formatedDate.startOf('day').toISO({ suppressMilliseconds: false, includeOffset: false });
+      date = formatedDate.startOf('day').toISO({ suppressMilliseconds: false, includeOffset: true });
     });
 
     return date;
@@ -67,13 +67,22 @@ export class UserToCreateDto {
     return [
       { index: { _index: OPEN_SEARCH_USERS_INDEX, _id: user.email } },
       {
-        summary: `${user.name} ${user.email} ${user.roles.join(', ')}`,
+        summary: `${user.name}/${user.email}/${user.roles.join(', ')}`,
         name: user.name,
         roles: JSON.stringify(user.roles),
         joined: user.joined,
-
         email: user.email,
       },
     ];
+  }
+
+  public static toDto(user: UserToCreateDto): UserToCreateDto {
+    //need to remove unnecessary fields
+    return plainToInstance(UserToCreateDto, {
+      name: user.name,
+      roles: user.roles,
+      joined: user.joined,
+      email: user.email,
+    });
   }
 }

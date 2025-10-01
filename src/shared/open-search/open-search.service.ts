@@ -1,26 +1,36 @@
 import { InternalServerErrorException, Injectable } from '@nestjs/common';
-import { Client } from '@opensearch-project/opensearch';
+import { Client, ClientOptions } from '@opensearch-project/opensearch';
 import { IBulkInput } from './types/bulkInput.interface';
-import { PinoLogger } from 'nestjs-pino';
+import AWS from 'aws-sdk';
+import { Logger } from '@nestjs/common';
+import createAwsOpensearchConnector from 'aws-opensearch-connector';
+import { ConfigService } from '../configs/config.service';
 
 @Injectable()
 export class OpenSearchService {
   private readonly client: Client;
 
-  public constructor(private readonly logger: PinoLogger) {
-    this.client = new Client({
-      node: process.env.OPENSEARCH_HOST,
-      auth: {
-        username: process.env.OPENSEARCH_USER!,
-        password: process.env.OPENSEARCH_PASS!,
-      },
-      ssl: { rejectUnauthorized: false },
-    });
+  private readonly logger = new Logger(OpenSearchService.name);
+
+  public constructor() {
+    const configs = new ConfigService();
+    const { env, openSearch } = configs;
+    const { host: node, username, password } = openSearch;
+
+    const options =
+      env !== 'local'
+        ? { ...createAwsOpensearchConnector(AWS.config), node }
+        : {
+            node,
+            auth: { username, password },
+            ssl: { rejectUnauthorized: false },
+          };
+    this.client = new Client(options as ClientOptions);
   }
 
-  async bulk(body: Array<IBulkInput | Record<string, any>>) {
+  async bulk(body: Array<IBulkInput | Record<string, any>>): Promise<void> {
     const { body: responseBody } = await this.client.bulk({ refresh: true, body });
-    console.log(responseBody.items, 'responseBody<<<<')
+
     if (responseBody.errors) {
       this.logger.warn({ errorItems: responseBody.items }, '[OpenSearch] Bulk upsert errors');
       throw new InternalServerErrorException();

@@ -24,7 +24,6 @@ export class UsersFileValidator extends FileValidator {
 
   public buildErrorMessage(): string {
     const message = this.errorMessages.join('. ');
-    this.errorMessages.length = 0;
     return message;
   }
 }

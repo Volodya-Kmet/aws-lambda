@@ -1,7 +1,7 @@
 import { IsNumber, IsOptional, IsString } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
-export class UserPostResponseDto {
+export class SuccessResponseDto {
   @ApiPropertyOptional({
     example: 'string',
     description: 'Explanation message',
@@ -12,11 +12,11 @@ export class UserPostResponseDto {
 
   @ApiPropertyOptional({
     example: 'string',
-    description: 'Error message',
+    description: 'Response data',
   })
   @IsString()
   @IsOptional()
-  public error?: string;
+  public data?: Record<string, any>;
 
   @ApiProperty({
     example: 'number',

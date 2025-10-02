@@ -40,7 +40,6 @@ export const handler: Handler = async (
   context: Context,
   callback: Callback,
 ): Promise<Handler | undefined> => {
-  if (!event) return;
   if (event.path === '' || event.path === undefined) event.path = '/';
 
   if (!cachedServer) cachedServer = await bootstrap(context);

@@ -6,14 +6,15 @@ provider:
   name: aws
   runtime: nodejs22.x
   region: us-east-1
-  memorySize: 256
-  timeout: 10
+  memorySize: 512
+  timeout: 25
   stage: ${opt:stage, 'local'}
   role: arn:aws:iam::046488310186:role/data-import-nest
   environment: ${file(env.${self:provider.stage}.json)}
   vpc:
     securityGroupIds:
       - sg-054c59e100a3c55a3
+      - sg-03100d69d06510ff2
     subnetIds:
       - subnet-0ca26cef48ff5f000
       - subnet-08fb3a8fefd37360a
@@ -28,6 +29,7 @@ functions:
       individually: true
       include:
         - src/functions/users/handler.js
+        - src/shared/**
       exclude:
         - src/**
     events:
@@ -64,13 +66,6 @@ plugins:
   - serverless-offline-watcher
 
 custom:
-  esbuild:
-    bundle: true
-    minify: true
-    sourcemap: true
-    platform: node
-    target: node22
-
   serverless-offline:
     httpPort: 3000
 

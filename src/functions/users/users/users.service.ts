@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import {Injectable, InternalServerErrorException} from '@nestjs/common';
 import { Readable } from 'stream';
 import { validate } from 'class-validator';
 import { UserToCreateDto } from './dtos/user-to-create.dto';
@@ -19,7 +19,7 @@ export class UsersService {
     private readonly osService: OpenSearchService,
   ) {}
 
-  public async processUserFile(file: Express.Multer.File): Promise<void> {
+  public async processUserFile(file: Express.Multer.File): Promise<{ upserted: number; failed: number }> {
     const validUsersMap: Map<string, UserToCreateDto> = new Map();
     const UPSERT_CHUNK_SIZE = 50;
     const usersCounter = {
@@ -27,15 +27,22 @@ export class UsersService {
       failed: 0,
     };
 
-    const pipeline = chain([Readable.from(file.buffer), parser(), streamArray()]);
+    try {
+      const pipeline = chain([Readable.from([file.buffer.toString()]), parser(), streamArray()]);
 
-    for await (const { value } of pipeline) {
-      await this.handleUser(value, validUsersMap, usersCounter, UPSERT_CHUNK_SIZE);
+      for await (const { value } of pipeline) {
+        await this.handleUser(value, validUsersMap, usersCounter, UPSERT_CHUNK_SIZE);
+      }
+
+      if (validUsersMap.size) await this.bulkUpsert([...validUsersMap.values()], usersCounter);
+
+      this.logger.log({ ...usersCounter }, 'Processing of users data file finished');
+
+      return usersCounter;
+    } catch (error) {
+      this.logger.error({ error: { message: error.message, stuck: error.stack } }, 'Internal server error');
+      throw new InternalServerErrorException();
     }
-
-    if (validUsersMap.size) await this.bulkUpsert([...validUsersMap.values()], usersCounter);
-
-    this.logger.log({ ...usersCounter }, 'Processing of users data file finished');
   }
 
   private handleUser = async (

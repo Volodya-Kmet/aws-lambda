@@ -59,7 +59,7 @@ The `docker-compose.yml` file is included in the repository.
 development
 
 ```bash
-$ npm run start
+$ npm run start:dev
 ```
 
 

@@ -34,8 +34,8 @@ It includes functionality for parsing large JSON files, validating data, and per
 ### 1. Clone the repository
 
 ```bash
-$ git clone https://github.com/your-org/your-repo.git
-$ cd your-repo
+$ git clone https://github.com/Volodya-Kmet/aws-lambda.git
+$ cd aws-lambda
 ```
 
 ### 2. Install dependencies
@@ -45,7 +45,7 @@ $ npm install
 ```
 
 ### 3. Start services with Docker
-
+Check 'Useful Resources' block
 ```bash
 $ docker-compose up -d
 ```
